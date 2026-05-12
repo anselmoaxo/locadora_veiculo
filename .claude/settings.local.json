@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__3bd392d3-c51a-4e20-bfc5-3fa29fca2b4a__get_design_context",
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
+    ]
+  }
+}

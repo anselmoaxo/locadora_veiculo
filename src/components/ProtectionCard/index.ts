@@ -1,0 +1,1 @@
+export { ProtectionCard } from './ProtectionCard'
