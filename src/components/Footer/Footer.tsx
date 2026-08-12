@@ -11,13 +11,13 @@ export function Footer() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-xl md:gap-lg">
           {/* Logo + tagline */}
           <div className="flex flex-col gap-md">
-            <img src={logoWhiteSrc} alt="Hermex Locadora" className="h-[60px] w-auto" />
-            <p className="font-inter text-body-md text-white">O carro ideal para sua ocasião</p>
+            <img src={logoWhiteSrc} alt="Axo Locadoras" className="h-[60px] w-auto" />
+            <p className="font-inter text-body-md text-white/80">A liberdade de ir começa aqui.</p>
           </div>
 
           {/* Center text */}
           <p className="font-inter text-body-md text-white text-center hidden md:block">
-            Desenvolvido por Alura. Projeto fictício sem fins comerciais.
+            Axo Locadoras · Mobilidade simples, segura e transparente.
           </p>
 
           {/* Social */}
@@ -39,7 +39,7 @@ export function Footer() {
 
         {/* Mobile center text */}
         <p className="font-inter text-body-md text-white text-center mt-xl md:hidden">
-          Desenvolvido por Alura. Projeto fictício sem fins comerciais.
+          Axo Locadoras · Mobilidade simples, segura e transparente.
         </p>
       </div>
     </footer>

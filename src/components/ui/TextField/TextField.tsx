@@ -16,6 +16,7 @@ const inputError = 'border-feedback-negative focus:border-feedback-negative'
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
   ({ label, error, className = '', id, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
+    const errorId = `${inputId}-error`
 
     return (
       <div className={`flex flex-col gap-xxs ${className}`}>
@@ -27,11 +28,13 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         <input
           ref={ref}
           id={inputId}
-          className={`${inputBase} ${error ? inputError : inputStates}`}
           {...props}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : props['aria-describedby']}
+          className={`${inputBase} ${error ? inputError : inputStates}`}
         />
         {error && (
-          <span className="font-inter text-body-sm text-feedback-negative">{error}</span>
+          <span id={errorId} className="font-inter text-body-sm text-feedback-negative">{error}</span>
         )}
       </div>
     )

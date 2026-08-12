@@ -1,29 +1,60 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LocationField } from '../ui/LocationField'
 import { DateField } from '../ui/DateField'
 import { TimeDropdown } from '../ui/TimeDropdown'
 import { Button } from '../ui/Button'
+import { listLocations, type RentalLocation } from '../../services/reservations'
 
-interface CarSearchBarProps {
-  onSearch?: (params: {
-    location: string
-    pickupDate: string
-    pickupTime: string
-    returnDate: string
-    returnTime: string
-  }) => void
+export interface CarSearchParams {
+  location: string
+  locationId: string
+  pickupDate: string
+  pickupTime: string
+  returnDate: string
+  returnTime: string
 }
 
-export function CarSearchBar({ onSearch }: CarSearchBarProps) {
-  const [location, setLocation] = useState('')
-  const [pickupDate, setPickupDate] = useState('')
-  const [pickupTime, setPickupTime] = useState('')
-  const [returnDate, setReturnDate] = useState('')
-  const [returnTime, setReturnTime] = useState('')
+interface CarSearchBarProps {
+  initialValues?: Partial<CarSearchParams>
+  onSearch?: (params: CarSearchParams) => void
+}
+
+export function CarSearchBar({ initialValues, onSearch }: CarSearchBarProps) {
+  const [location, setLocation] = useState(initialValues?.location ?? '')
+  const [locationId, setLocationId] = useState(initialValues?.locationId ?? '')
+  const [pickupDate, setPickupDate] = useState(initialValues?.pickupDate ?? '')
+  const [pickupTime, setPickupTime] = useState(initialValues?.pickupTime ?? '')
+  const [returnDate, setReturnDate] = useState(initialValues?.returnDate ?? '')
+  const [returnTime, setReturnTime] = useState(initialValues?.returnTime ?? '')
   const [expanded, setExpanded] = useState(false)
+  const [locations, setLocations] = useState<RentalLocation[]>([])
+
+  useEffect(() => {
+    let active = true
+    listLocations()
+      .then((locations) => {
+        if (!active) return
+        setLocations(locations)
+        if (locations.length === 1) {
+          setLocation((current) => current || locations[0].nome)
+          setLocationId((current) => current || locations[0].id)
+        }
+      })
+      .catch(() => setLocations([]))
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  function handleLocationChange(value: string) {
+    setLocation(value)
+    const match = locations.find((item) => item.nome === value)
+    setLocationId(match?.id ?? '')
+  }
 
   function handleSearch() {
-    onSearch?.({ location, pickupDate, pickupTime, returnDate, returnTime })
+    onSearch?.({ location, locationId, pickupDate, pickupTime, returnDate, returnTime })
   }
 
   return (
@@ -33,7 +64,8 @@ export function CarSearchBar({ onSearch }: CarSearchBarProps) {
         <div className="md:hidden flex flex-col gap-md">
           <LocationField
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
+            options={locations.map((item) => item.nome)}
+            onChange={(e) => handleLocationChange(e.target.value)}
             onFocus={() => setExpanded(true)}
             className='flex-2'
           />
@@ -76,7 +108,8 @@ export function CarSearchBar({ onSearch }: CarSearchBarProps) {
         <div className="hidden md:flex items-center gap-md flex-wrap">
           <LocationField
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
+            options={locations.map((item) => item.nome)}
+            onChange={(e) => handleLocationChange(e.target.value)}
             className="w-[220px] shrink-0"
           />
           <DateField

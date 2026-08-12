@@ -1,0 +1,8 @@
+[functions.cadastrar-veiculo]
+verify_jwt = true
+
+[functions.alterar-veiculo]
+verify_jwt = true
+
+[functions.reserve-car]
+verify_jwt = true

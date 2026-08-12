@@ -1,11 +1,14 @@
-import { InputHTMLAttributes, forwardRef } from 'react'
+import { InputHTMLAttributes, forwardRef, useId } from 'react'
 
-interface LocationFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+interface LocationFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'list'> {
   onWhite?: boolean
+  options?: string[]
 }
 
 export const LocationField = forwardRef<HTMLInputElement, LocationFieldProps>(
-  ({ onWhite = false, className = '', ...props }, ref) => {
+  ({ onWhite = false, options = [], className = '', ...props }, ref) => {
+    const generatedId = useId()
+    const listId = options.length > 0 ? `locais-${generatedId.replace(/:/g, '')}` : undefined
     const borderColor = onWhite
       ? 'border-neutral-details hover:border-primary focus-within:border-primary'
       : 'border-white hover:border-neutral-background focus-within:border-neutral-background'
@@ -23,9 +26,15 @@ export const LocationField = forwardRef<HTMLInputElement, LocationFieldProps>(
           ref={ref}
           type="text"
           placeholder="Local de retirada"
+          list={listId}
           className={`flex-1 font-inter text-body-md outline-none bg-transparent min-w-0 ${textColor} ${placeholderColor}`}
           {...props}
         />
+        {listId ? (
+          <datalist id={listId}>
+            {options.map((option) => <option key={option} value={option} />)}
+          </datalist>
+        ) : null}
       </div>
     )
   },

@@ -55,7 +55,7 @@ export function Modal({
 
         <div className="flex flex-col gap-xl items-center">
           {/* Logo */}
-          <img src={logoSrc} alt="Hermex Locadora" className="h-[60px] w-auto" />
+          <img src={logoSrc} alt="Axo Locadoras" className="h-[60px] w-auto" />
 
           <div className="flex flex-col gap-xl items-center w-full">
             {/* Form fields */}

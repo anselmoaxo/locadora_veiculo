@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { CarSearchBar } from '../components/CarSearchBar'
@@ -8,104 +8,13 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { CategoryIcon, CATEGORY_ICONS } from '../components/CategoryIcon'
 import { Filter } from '../components/ui/Filter'
 import { Button } from '../components/ui/Button'
-
-// ── Mock data ──────────────────────────────────────────────────────────────────
-
-interface MockVehicle {
-  id: string
-  title: string
-  subtitle: string
-  pricePerDay: number
-  imageUrl?: string
-  category: string
-}
-
-const MOCK_VEHICLES: MockVehicle[] = [
-  {
-    id: '1',
-    title: 'Hyundai HB20 2024',
-    subtitle: 'Hatch — Câmbio automático',
-    pricePerDay: 120,
-    category: 'hatch',
-  },
-  {
-    id: '2',
-    title: 'Toyota Corolla Cross 2023',
-    subtitle: 'SUV — Câmbio automático',
-    pricePerDay: 240,
-    category: 'suv',
-  },
-  {
-    id: '3',
-    title: 'Volkswagen Polo 2024',
-    subtitle: 'Hatch — Manual',
-    pricePerDay: 95,
-    category: 'hatch',
-  },
-  {
-    id: '4',
-    title: 'Fiat Pulse 2023',
-    subtitle: 'SUV — Automático',
-    pricePerDay: 175,
-    category: 'suv',
-  },
-  {
-    id: '5',
-    title: 'Honda Civic 2023',
-    subtitle: 'Sedan — Automático CVT',
-    pricePerDay: 200,
-    category: 'sedan',
-  },
-  {
-    id: '6',
-    title: 'Chevrolet Onix 2024',
-    subtitle: 'Hatch — Automático',
-    pricePerDay: 110,
-    category: 'hatch',
-  },
-  {
-    id: '7',
-    title: 'Jeep Compass 2023',
-    subtitle: 'SUV — Automático 4x4',
-    pricePerDay: 290,
-    category: 'suv',
-  },
-  {
-    id: '8',
-    title: 'Toyota Yaris 2024',
-    subtitle: 'Sedan — Automático',
-    pricePerDay: 145,
-    category: 'sedan',
-  },
-  {
-    id: '9',
-    title: 'Volkswagen T-Cross 2023',
-    subtitle: 'SUV — Automático',
-    pricePerDay: 210,
-    category: 'suv',
-  },
-  {
-    id: '10',
-    title: 'Renault Kwid 2024',
-    subtitle: 'Hatch — Manual',
-    pricePerDay: 85,
-    category: 'hatch',
-  },
-  {
-    id: '11',
-    title: 'Nissan Kicks 2023',
-    subtitle: 'SUV — CVT',
-    pricePerDay: 225,
-    category: 'suv',
-  },
-  {
-    id: '12',
-    title: 'Ford Territory 2023',
-    subtitle: 'SUV — Automático',
-    pricePerDay: 260,
-    category: 'suv',
-  },
-]
+import {
+  buildVehicleSearch,
+  listVehicles,
+  matchesVehicleFeature,
+  type AvailabilityPeriod,
+  type Vehicle,
+} from '../services/vehicles'
 
 const SORT_OPTIONS = [
   { label: 'Menor preço', value: 'price-asc' },
@@ -119,6 +28,7 @@ const CATEGORY_OPTIONS = [
   { label: 'Hatch', value: 'hatch' },
   { label: 'SUV', value: 'suv' },
   { label: 'Sedan', value: 'sedan' },
+  { label: 'Minivan', value: 'minivan' },
 ]
 
 const CARS_PER_PAGE = 8
@@ -127,6 +37,7 @@ const CARS_PER_PAGE = 8
 
 export interface SearchParams {
   location?: string
+  locationId?: string
   pickupDate?: string
   pickupTime?: string
   returnDate?: string
@@ -137,21 +48,64 @@ export interface SearchParams {
 
 export function CarListingPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [sortBy, setSortBy] = useState('price-asc')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [activeFeature, setActiveFeature] = useState('')
   const [visibleCount, setVisibleCount] = useState(CARS_PER_PAGE)
 
-  // Filter by category dropdown
-  const filteredByCategory = categoryFilter
-    ? MOCK_VEHICLES.filter((v) => v.category === categoryFilter)
-    : MOCK_VEHICLES
+  const periodKey = searchParams.toString()
+
+  useEffect(() => {
+    let active = true
+    const currentSearch = new URLSearchParams(periodKey)
+    const period: AvailabilityPeriod = {
+      locationId: currentSearch.get('locationId') ?? undefined,
+      pickupDate: currentSearch.get('pickupDate') ?? undefined,
+      pickupTime: currentSearch.get('pickupTime') ?? undefined,
+      returnDate: currentSearch.get('returnDate') ?? undefined,
+      returnTime: currentSearch.get('returnTime') ?? undefined,
+    }
+
+    setLoading(true)
+    setLoadError('')
+    listVehicles(period)
+      .then((data) => {
+        if (active) setVehicles(data)
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar os veículos disponíveis.',
+        )
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [periodKey])
+
+  const filteredByCategory = vehicles.filter((vehicle) => {
+    const matchesCategory = categoryFilter ? vehicle.category === categoryFilter : true
+    return matchesCategory && matchesVehicleFeature(vehicle, activeFeature)
+  })
 
   // Sort
   const sorted = [...filteredByCategory].sort((a, b) => {
     if (sortBy === 'price-asc') return a.pricePerDay - b.pricePerDay
     if (sortBy === 'price-desc') return b.pricePerDay - a.pricePerDay
-    // 'newest' and 'popular' keep insertion order (mock)
+    if (sortBy === 'newest') {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    }
+    if (sortBy === 'popular') return b.popularidade - a.popularidade
     return 0
   })
 
@@ -166,13 +120,28 @@ export function CarListingPage() {
     setVisibleCount((c) => c + CARS_PER_PAGE)
   }
 
+  function handleSearch(params: AvailabilityPeriod & { location: string; locationId: string }) {
+    setSearchParams(new URLSearchParams(buildVehicleSearch(params).slice(1)))
+    setVisibleCount(CARS_PER_PAGE)
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-neutral-background">
       {/* Header */}
       <Header />
 
       {/* Search bar */}
-      <CarSearchBar onSearch={(p) => console.log('new search', p)} />
+      <CarSearchBar
+        initialValues={{
+          location: searchParams.get('location') ?? '',
+          locationId: searchParams.get('locationId') ?? '',
+          pickupDate: searchParams.get('pickupDate') ?? '',
+          pickupTime: searchParams.get('pickupTime') ?? '',
+          returnDate: searchParams.get('returnDate') ?? '',
+          returnTime: searchParams.get('returnTime') ?? '',
+        }}
+        onSearch={handleSearch}
+      />
 
       {/* Main content */}
       <main className="flex-1 max-w-[1480px] mx-auto w-full px-md md:px-lg py-xl flex flex-col gap-lg">
@@ -238,7 +207,15 @@ export function CarListingPage() {
         </div>
 
         {/* Vehicle grid */}
-        {visible.length > 0 ? (
+        {loading ? (
+          <p className="font-inter text-body-md text-neutral-text py-xl text-center">
+            Consultando veículos disponíveis...
+          </p>
+        ) : loadError ? (
+          <p className="font-inter text-body-md text-neutral-text py-xl text-center">
+            {loadError}
+          </p>
+        ) : visible.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-lg justify-items-center">
             {visible.map((vehicle) => (
               <VehicleCard
@@ -248,7 +225,7 @@ export function CarListingPage() {
                 subtitle={vehicle.subtitle}
                 pricePerDay={vehicle.pricePerDay}
                 imageUrl={vehicle.imageUrl}
-                onDetailsClick={() => navigate(`/carros/${vehicle.id}`)}
+                onDetailsClick={() => navigate(`/carros/${vehicle.id}?${searchParams.toString()}`)}
               />
             ))}
           </div>
@@ -274,7 +251,7 @@ export function CarListingPage() {
         )}
 
         {/* Load more */}
-        {hasMore && (
+        {!loading && !loadError && hasMore && (
           <div className="flex justify-center pt-md">
             <Button variant="secondary" onClick={handleLoadMore}>
               Ver mais veículos

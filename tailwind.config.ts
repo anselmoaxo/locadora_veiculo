@@ -6,32 +6,32 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          dark: '#E28634',
-          DEFAULT: '#F29849',
-          light: '#FFDAB8',
+          dark: '#0795A5',
+          DEFAULT: '#20CAD8',
+          light: '#CFF7FA',
         },
         secondary: {
-          dark: '#23384D',
-          DEFAULT: '#1D2F40',
-          light: '#2E4B66',
+          dark: '#071624',
+          DEFAULT: '#0B1F33',
+          light: '#173B5E',
         },
         neutral: {
-          background: '#FBFBFB',
-          text: '#444444',
-          divisor: '#F2F2F2',
-          details: '#E7E7E7',
+          background: '#F4F8FA',
+          text: '#344B5F',
+          divisor: '#E7EFF3',
+          details: '#CFDDE4',
           white: '#FFFFFF',
           black: '#000000',
         },
         feedback: {
-          attention: '#FFD400',
-          negative: '#FF3F48',
-          positive: '#6EDC3B',
+          attention: '#F5B942',
+          negative: '#E5484D',
+          positive: '#22A968',
         },
       },
       fontFamily: {
         inter: ['Inter', 'sans-serif'],
-        exo: ['"Exo 2"', 'sans-serif'],
+        exo: ['Manrope', 'sans-serif'],
         icons: ['"Material Icons"', 'sans-serif'],
       },
       fontSize: {
@@ -43,13 +43,13 @@ const config: Config = {
         'heading-md': ['39px', { lineHeight: '1.25', fontWeight: '700' }],
       },
       boxShadow: {
-        'elevation-1': '0 0 10px rgba(132,132,132,0.10)',
-        'elevation-2': '0 0 20px rgba(132,132,132,0.20)',
-        'elevation-3': '0 0 30px rgba(132,132,132,0.25)',
+        'elevation-1': '0 6px 20px rgba(11,31,51,0.08)',
+        'elevation-2': '0 14px 36px rgba(11,31,51,0.14)',
+        'elevation-3': '0 20px 54px rgba(11,31,51,0.18)',
       },
       borderRadius: {
-        xs: '4px',
-        modal: '16px',
+        xs: '10px',
+        modal: '22px',
       },
       flex: {
         '2': '2 2 0%',
