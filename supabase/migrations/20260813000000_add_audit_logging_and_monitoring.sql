@@ -44,8 +44,11 @@ create index if not exists audit_log_error_idx
   on public.audit_log (error_code, created_at desc)
   where error_code is not null;
 
--- Disable RLS (only service_role should write via triggers)
-alter table public.audit_log disable row level security;
+-- Logs are in an exposed schema, so deny direct client access with RLS and
+-- explicit privileges. Guarded admin RPCs remain the only read interface.
+alter table public.audit_log enable row level security;
+revoke all on table public.audit_log from public, anon, authenticated;
+grant select, insert on table public.audit_log to service_role;
 
 -- 2. Create function_logs table (for Edge Function logging)
 create table if not exists public.function_logs (
@@ -87,7 +90,9 @@ create index if not exists function_logs_error_idx
 create index if not exists function_logs_request_id_idx
   on public.function_logs (request_id);
 
-alter table public.function_logs disable row level security;
+alter table public.function_logs enable row level security;
+revoke all on table public.function_logs from public, anon, authenticated;
+grant select, insert on table public.function_logs to service_role;
 
 -- 3. Create helper functions for audit logging
 
@@ -237,7 +242,8 @@ create trigger audit_reservas_trigger
 
 -- 6. Create view for admin to see recent audit logs
 
-create or replace view public.v_audit_log_admin as
+create or replace view public.v_audit_log_admin
+with (security_invoker = true) as
 select
   al.id,
   al.table_name,
@@ -254,9 +260,9 @@ from public.audit_log as al
 left join auth.users as u on u.id = al.user_id
 order by al.created_at desc;
 
--- Grant access to admin (via RLS on the function level)
--- This view will be filtered by admin-only function
-grant select on public.v_audit_log_admin to authenticated;
+-- Never expose the view directly. The guarded admin RPC below is the only
+-- supported read path and checks private.assert_vehicle_administrator().
+revoke all on table public.v_audit_log_admin from public, anon, authenticated;
 
 -- 7. Create function to view audit logs (admin only)
 
@@ -367,4 +373,3 @@ revoke all on function public.admin_get_function_logs(integer,integer,text,text,
   from public, anon;
 grant execute on function public.admin_get_function_logs(integer,integer,text,text,boolean,integer)
   to authenticated;
-

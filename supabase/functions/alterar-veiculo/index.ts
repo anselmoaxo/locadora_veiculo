@@ -1,5 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.112.3'
+import { Logger } from '../_shared/logger.ts'
+import { consumeRateLimit } from '../_shared/rateLimit.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -410,12 +412,27 @@ async function updateVehicle(request: Request, client: SupabaseClient, user: Jso
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  const requestId = request.headers.get('x-request-id') || crypto.randomUUID()
+
   const client = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
     auth: { persistSession: false, autoRefreshToken: false },
   })
+  const logger = new Logger('alterar-veiculo', requestId, undefined, client)
 
   try {
     const user = await authorize(request, client)
+    logger.setUserId(user.id)
+    const mutation = request.method === 'PUT' || request.method === 'PATCH'
+    const rateLimit = await consumeRateLimit(client, {
+      scope: mutation ? 'alterar-veiculo:write' : 'alterar-veiculo:read',
+      key: user.id,
+      limit: mutation ? 30 : 120,
+      windowSeconds: 60,
+    })
+    if (!rateLimit.allowed) {
+      await logger.persist('WARN', 'Rate limit exceeded', { errorCode: 'RATE_LIMIT_EXCEEDED' })
+      return json(429, { error: 'Limite de uso atingido. Tente novamente mais tarde.' })
+    }
     const vehicleId = new URL(request.url).searchParams.get('id') ?? ''
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(vehicleId)) {
       throw new HttpError(400, 'Identificador de veículo inválido.')
@@ -427,7 +444,10 @@ Deno.serve(async (request: Request) => {
     if (cause instanceof HttpError) return json(cause.status, { error: cause.message })
     const databaseError = cause as { code?: string }
     if (databaseError?.code === '23505') return json(409, { error: 'Placa, chassi, Renavam ou versão já cadastrada.' })
-    console.error(cause)
+    await logger.persist('ERROR', 'Falha ao alterar veículo', {
+      errorCode: databaseError?.code ?? 'VEHICLE_UPDATE_FAILED',
+      errorDetails: { message: cause instanceof Error ? cause.message : 'Unknown error' },
+    })
     return json(500, { error: 'Não foi possível alterar o veículo.' })
   }
 })

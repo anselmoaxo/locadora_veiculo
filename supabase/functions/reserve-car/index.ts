@@ -1,6 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.112.3'
 import { ulid } from 'npm:ulid@2.3.0'
+import { Logger } from '../_shared/logger.ts'
+import { consumeRateLimit } from '../_shared/rateLimit.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,47 +36,8 @@ interface SupabaseError {
   message: string
 }
 
-// Logger with structured output
-class Logger {
-  private requestId: string
-  private userId?: string
-
-  constructor(requestId: string, userId?: string) {
-    this.requestId = requestId
-    this.userId = userId
-  }
-
-  private formatLog(level: string, message: string, data?: JsonRecord) {
-    return JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level,
-      function: 'reserve-car',
-      request_id: this.requestId,
-      user_id: this.userId,
-      message,
-      ...data,
-    })
-  }
-
-  debug(message: string, data?: JsonRecord) {
-    console.log(this.formatLog('DEBUG', message, data))
-  }
-
-  info(message: string, data?: JsonRecord) {
-    console.log(this.formatLog('INFO', message, data))
-  }
-
-  warn(message: string, data?: JsonRecord) {
-    console.warn(this.formatLog('WARN', message, data))
-  }
-
-  error(message: string, data?: JsonRecord) {
-    console.error(this.formatLog('ERROR', message, data))
-  }
-}
-
-function json(status: number, body: JsonRecord) {
-  return new Response(JSON.stringify(body), { status, headers: jsonHeaders })
+function json(status: number, body: JsonRecord, extraHeaders: Record<string, string> = {}) {
+  return new Response(JSON.stringify(body), { status, headers: { ...jsonHeaders, ...extraHeaders } })
 }
 
 function requiredEnv(...names: string[]) {
@@ -189,7 +152,12 @@ async function retryWithBackoff<T>(
 
 Deno.serve(async (request: Request) => {
   const requestId = request.headers.get('x-request-id') || ulid()
-  const logger = new Logger(requestId)
+  const serviceClient = createClient(
+    requiredEnv('SUPABASE_URL'),
+    requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+  const logger = new Logger('reserve-car', requestId, undefined, serviceClient)
 
   try {
     // CORS
@@ -299,8 +267,34 @@ Deno.serve(async (request: Request) => {
     }
 
     const userId = authData.user.id
-    logger.userId = userId
+    logger.setUserId(userId)
     logger.info('User authenticated', { user_id: userId })
+
+    try {
+      const rateLimit = await consumeRateLimit(serviceClient, {
+        scope: 'reserve-car:user',
+        key: userId,
+        limit: 10,
+        windowSeconds: 60,
+      })
+      if (!rateLimit.allowed) {
+        await logger.persist('WARN', 'Rate limit exceeded', {
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+          metadata: { retry_after_seconds: rateLimit.retry_after_seconds },
+        })
+        return json(429, {
+          error: 'RATE_LIMIT_EXCEEDED',
+          retry_after_seconds: rateLimit.retry_after_seconds,
+          request_id: requestId,
+        }, { 'Retry-After': String(rateLimit.retry_after_seconds) })
+      }
+    } catch (error) {
+      await logger.persist('ERROR', 'Rate limiter unavailable', {
+        errorCode: 'RATE_LIMIT_UNAVAILABLE',
+        errorDetails: { message: error instanceof Error ? error.message : 'Unknown error' },
+      })
+      return json(503, { error: 'SERVICE_TEMPORARILY_UNAVAILABLE', request_id: requestId })
+    }
 
     // Call RPC with retry logic
     let data: ReservationJobResult[] | null = null

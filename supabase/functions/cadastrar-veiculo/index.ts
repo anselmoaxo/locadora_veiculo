@@ -1,5 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.112.3'
+import { Logger } from '../_shared/logger.ts'
+import { consumeRateLimit as consumeAtomicRateLimit } from '../_shared/rateLimit.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,6 +57,7 @@ async function requireAdministrator(
 
   if (administratorError) throw administratorError
   if (!administrator) throw new HttpError(403, 'Apenas administradores podem gerenciar veículos.')
+  return userData.user
 }
 
 function cleanText(value: FormDataEntryValue | null, maximumLength: number) {
@@ -194,15 +197,23 @@ async function getOptions(client: ReturnType<typeof createClient>) {
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  const requestId = request.headers.get('x-request-id') || crypto.randomUUID()
+
   const client = createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
     auth: { persistSession: false, autoRefreshToken: false },
   })
+  const logger = new Logger('cadastrar-veiculo', requestId, undefined, client)
+  let user: { id: string }
 
   try {
-    await requireAdministrator(client, request)
+    user = await requireAdministrator(client, request)
+    logger.setUserId(user.id)
   } catch (error) {
     if (error instanceof HttpError) return json(error.status, { error: error.message })
-    console.error('Falha ao validar administrador', error)
+    await logger.persist('ERROR', 'Falha ao validar administrador', {
+      errorCode: 'AUTHORIZATION_FAILED',
+      errorDetails: { message: error instanceof Error ? error.message : 'Unknown error' },
+    })
     return json(500, { error: 'Não foi possível validar sua autorização.' })
   }
 
@@ -222,7 +233,11 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
-    if (!await consumeRateLimit(client, request)) {
+    const rateLimit = await consumeAtomicRateLimit(client, {
+      scope: 'cadastrar-veiculo:user', key: user.id, limit: 5, windowSeconds: 3600,
+    })
+    if (!rateLimit.allowed) {
+      await logger.persist('WARN', 'Rate limit exceeded', { errorCode: 'RATE_LIMIT_EXCEEDED' })
       return json(429, { error: 'Limite de cinco cadastros por hora atingido. Tente novamente mais tarde.' })
     }
   } catch {
@@ -473,7 +488,10 @@ Deno.serve(async (request: Request) => {
     if (databaseError?.code === '23505') {
       return json(409, { error: 'A placa, o chassi ou o Renavam já está cadastrado.' })
     }
-    console.error('Falha no cadastro público de veículo', error)
+    await logger.persist('ERROR', 'Falha no cadastro de veículo', {
+      errorCode: databaseError?.code ?? 'VEHICLE_CREATE_FAILED',
+      errorDetails: { message: error instanceof Error ? error.message : 'Unknown error' },
+    })
     return json(500, { error: 'Não foi possível cadastrar o veículo.' })
   }
 })

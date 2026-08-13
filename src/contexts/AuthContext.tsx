@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setProfile((data as UserProfile | null) ?? null)
     setProfileLoading(false)
-  }, [session?.user.id])
+  }, [session])
 
   const refreshAdmin = useCallback(async () => {
     if (!session?.user.id) {
