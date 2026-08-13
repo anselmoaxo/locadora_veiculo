@@ -86,7 +86,7 @@ export function HomePage() {
       <CarSearchBar onSearch={(params) => navigate(`/carros${buildVehicleSearch(params)}`)} />
 
       {/* ── Hero banner ── */}
-      <section className="relative bg-secondary-dark overflow-hidden min-h-[420px] md:min-h-[500px] flex items-center">
+      <section className="relative bg-secondary-dark overflow-hidden min-h-[380px] md:min-h-[460px] flex items-center">
         <div className="absolute -left-24 -top-32 h-[360px] w-[360px] rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
         {/* Background decorative car image */}
         <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
@@ -103,7 +103,7 @@ export function HomePage() {
         {/* Hero text */}
         <div className="relative max-w-[1480px] mx-auto w-full px-md md:px-lg py-xl">
           <div className="max-w-[650px]">
-            <p className="mb-md font-exo text-body-sm font-bold uppercase tracking-[0.24em] text-primary">
+            <p className="mb-md inline-flex rounded-full border border-primary/40 bg-primary/10 px-md py-xs font-exo text-body-sm font-bold uppercase tracking-[0.18em] text-primary">
               Mobilidade do seu jeito
             </p>
             <h1 className="font-exo font-extrabold text-heading-md md:text-[58px] lg:text-[72px] leading-[1.05] tracking-[-0.04em] text-white">
@@ -117,10 +117,10 @@ export function HomePage() {
       </section>
 
       {/* ── Main content ── */}
-      <main className="flex-1 max-w-[1480px] mx-auto w-full px-md md:px-lg py-xl flex flex-col gap-xl">
+      <main id="frota" className="flex-1 max-w-[1480px] mx-auto w-full px-md md:px-lg py-xl flex flex-col gap-xl scroll-mt-[96px]">
 
         {/* ── Category icons filter ── */}
-        <section className="flex flex-col gap-md">
+        <section className="flex flex-col gap-md rounded-modal bg-white p-lg shadow-elevation-1">
           <h2 className="font-exo font-bold text-heading-xs text-secondary">
             Filtrar por características
           </h2>
@@ -138,7 +138,7 @@ export function HomePage() {
         </section>
 
         {/* ── Vehicles section ── */}
-        <section className="flex flex-col gap-lg">
+        <section className="flex flex-col gap-lg pt-md">
           {/* Section header with filters */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-md">
             <h2 className="font-exo font-bold text-heading-xs text-secondary">

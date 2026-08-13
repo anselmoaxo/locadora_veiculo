@@ -57,6 +57,26 @@ export interface ReserveCarResult {
   status: 'pending' | string
 }
 
+export type ReservationJobStatus = 'pending' | 'processing' | 'succeeded' | 'failed'
+
+export interface ReservationJobResult {
+  job_id: string
+  status: ReservationJobStatus
+  reservation_id: string | null
+  result?: ReserveCarResult | null
+  error_code?: string | null
+  attempts?: number
+  max_attempts?: number
+}
+
+export interface MyReservationJob extends ReservationJobResult {
+  car_id: string
+  start_at: string
+  end_at: string
+  created_at: string
+  updated_at: string
+}
+
 export type ReserveCarErrorCode =
   | 'AUTH_REQUIRED'
   | 'INVALID_OR_EXPIRED_TOKEN'
@@ -113,6 +133,7 @@ function reserveCarErrorMessage(status: number, code: string): string {
     PROFILE_PENDING_APPROVAL: 'Seu cadastro ainda está aguardando aprovação do administrador.',
     PROFILE_REJECTED: 'Seu cadastro precisa ser corrigido e enviado novamente para análise.',
     DRIVER_LICENSE_EXPIRED: 'Sua CNH está vencida. Atualize o cadastro para continuar.',
+    QUEUE_TIMEOUT: 'A reserva continua na fila. Consulte Minhas reservas em alguns instantes.',
   }
   return messages[code]
     ?? (status >= 500
@@ -121,11 +142,12 @@ function reserveCarErrorMessage(status: number, code: string): string {
 }
 
 const reserveCarEndpoint = `${supabaseUrl}/functions/v1/reserve-car`
+const reserveStatusEndpoint = `${supabaseUrl}/functions/v1/reserve-status`
 
 export async function reserveCarAtomic(
   input: ReserveCarInput,
   idempotencyKey: string,
-): Promise<ReserveCarResult> {
+): Promise<ReservationJobResult> {
   const { data, error: sessionError } = await supabase.auth.getSession()
   const accessToken = data.session?.access_token
   if (sessionError || !accessToken) throw new ReserveCarError(401, 'AUTH_REQUIRED')
@@ -153,23 +175,80 @@ export async function reserveCarAtomic(
     throw new ReserveCarError(500, 'INTERNAL_ERROR')
   }
 
-  const payload = await response.json().catch(() => ({})) as ReserveCarErrorPayload & Partial<ReserveCarResult>
+  const payload = await response.json().catch(() => ({})) as ReserveCarErrorPayload & Partial<ReservationJobResult>
   if (!response.ok) {
     const code = payload.error ?? payload.code ?? (response.status >= 500 ? 'INTERNAL_ERROR' : 'INVALID_REQUEST')
     throw new ReserveCarError(response.status, code, payload.details)
   }
 
-  if (!payload.reservation_id || !payload.car_id || !payload.start_at || !payload.end_at || !payload.status) {
+  if (!payload.job_id || !payload.status) {
     throw new ReserveCarError(500, 'INTERNAL_ERROR')
   }
 
   return {
-    reservation_id: payload.reservation_id,
-    car_id: payload.car_id,
-    start_at: payload.start_at,
-    end_at: payload.end_at,
+    job_id: payload.job_id,
     status: payload.status,
+    reservation_id: payload.reservation_id ?? null,
+    result: payload.result ?? null,
+    error_code: payload.error_code ?? null,
   }
+}
+
+export async function getReservationJob(jobId: string): Promise<ReservationJobResult> {
+  const { data, error: sessionError } = await supabase.auth.getSession()
+  const accessToken = data.session?.access_token
+  if (sessionError || !accessToken) throw new ReserveCarError(401, 'AUTH_REQUIRED')
+
+  let response: Response
+  try {
+    response = await fetch(`${reserveStatusEndpoint}?job_id=${encodeURIComponent(jobId)}`, {
+      headers: {
+        apikey: supabasePublishableKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+  } catch {
+    throw new ReserveCarError(500, 'INTERNAL_ERROR')
+  }
+
+  const payload = await response.json().catch(() => ({})) as ReserveCarErrorPayload & Partial<ReservationJobResult>
+  if (!response.ok) {
+    throw new ReserveCarError(response.status, payload.error ?? payload.code ?? 'INTERNAL_ERROR', payload.details)
+  }
+  if (!payload.job_id || !payload.status) throw new ReserveCarError(500, 'INTERNAL_ERROR')
+
+  return {
+    job_id: payload.job_id,
+    status: payload.status,
+    reservation_id: payload.reservation_id ?? null,
+    result: payload.result ?? null,
+    error_code: payload.error_code ?? null,
+    attempts: payload.attempts,
+    max_attempts: payload.max_attempts,
+  }
+}
+
+export async function listMyReservationJobs(): Promise<MyReservationJob[]> {
+  const { data, error } = await supabase
+    .from('reservation_jobs')
+    .select('id,car_id,start_at,end_at,status,reservation_id,result,error_code,attempts,max_attempts,created_at,updated_at')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data ?? []).map((job) => ({
+    job_id: job.id,
+    car_id: job.car_id,
+    start_at: job.start_at,
+    end_at: job.end_at,
+    status: job.status as ReservationJobStatus,
+    reservation_id: job.reservation_id,
+    result: job.result as ReserveCarResult | null,
+    error_code: job.error_code,
+    attempts: job.attempts,
+    max_attempts: job.max_attempts,
+    created_at: job.created_at,
+    updated_at: job.updated_at,
+  }))
 }
 
 export async function listLocations(): Promise<RentalLocation[]> {

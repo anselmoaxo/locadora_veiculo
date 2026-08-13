@@ -5,6 +5,7 @@ import { Footer } from '../components/Footer'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { ReservationForm } from '../components/ReservationForm'
 import { Button } from '../components/ui/Button'
+import { useAuth } from '../contexts/AuthContext'
 import { getVehicle, type Vehicle } from '../services/vehicles'
 import {
   findLocationByName,
@@ -41,6 +42,7 @@ export function ReservationPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [confirmation, setConfirmation] = useState<ReserveCarResult | null>(null)
+  const { profile, profileLoading } = useAuth()
 
   const pickupDate = searchParams.get('pickupDate') ?? ''
   const pickupTime = searchParams.get('pickupTime') ?? ''
@@ -50,6 +52,14 @@ export function ReservationPage() {
   const locationId = searchParams.get('locationId') ?? ''
   const initialStartAt = pickupDate && pickupTime ? `${pickupDate}T${pickupTime}` : ''
   const initialEndAt = returnDate && returnTime ? `${returnDate}T${returnTime}` : ''
+  const redirect = `${location.pathname}${location.search}`
+
+  useEffect(() => {
+    if (profileLoading) return
+    if (!profile || profile.cadastro_status === 'incompleto' || profile.cadastro_status === 'reprovado') {
+      navigate(`/minha-conta?redirect=${encodeURIComponent(redirect)}&reason=reservation`, { replace: true })
+    }
+  }, [navigate, profile, profileLoading, redirect])
 
   useEffect(() => {
     let active = true
@@ -76,13 +86,13 @@ export function ReservationPage() {
     return () => { active = false }
   }, [id])
 
-  if (loading || !vehicle || !id) {
+  if (loading || profileLoading || !vehicle || !id) {
     return (
       <div className="min-h-screen flex flex-col bg-neutral-background">
         <Header />
         <main className="flex-1 flex items-center justify-center px-md">
           <p className="font-inter text-body-lg text-neutral-text">
-            {loading ? 'Carregando reserva...' : loadError}
+            {loading || profileLoading ? 'Preparando sua reserva...' : loadError}
           </p>
         </main>
         <Footer />
@@ -93,7 +103,6 @@ export function ReservationPage() {
   const selectedLocation = locations.find((item) => item.id === locationId)
     ?? findLocationByName(locations, locationName)
   const detailUrl = `/carros/${vehicle.id}?${searchParams.toString()}`
-  const redirect = `${location.pathname}${location.search}`
 
   return (
     <div className="min-h-screen flex flex-col bg-neutral-background">

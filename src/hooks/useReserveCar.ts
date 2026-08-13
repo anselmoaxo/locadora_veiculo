@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   reserveCarAtomic,
-  type ReserveCarError,
+  getReservationJob,
+  ReserveCarError,
   type ReserveCarInput,
   type ReserveCarResult,
 } from '../services/reservations'
@@ -10,6 +11,8 @@ export type ReservationMutationStatus =
   | 'idle'
   | 'validating'
   | 'submitting'
+  | 'queued'
+  | 'processing'
   | 'success'
   | 'error'
 
@@ -25,6 +28,12 @@ interface ReservationMutationState {
 }
 
 const storageKey = 'reserve-car:pending-attempt'
+const pollIntervalMs = 2_000
+const maximumPolls = 50
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds))
+}
 
 function readAttempt(): PendingAttempt | null {
   try {
@@ -97,7 +106,27 @@ export function useReserveCar(currentFingerprint: string) {
     setState({ status: 'submitting', result: null, error: null })
 
     try {
-      const result = await reserveCarAtomic(input, idempotencyKey)
+      const queuedJob = await reserveCarAtomic(input, idempotencyKey)
+      setState({ status: queuedJob.status === 'processing' ? 'processing' : 'queued', result: null, error: null })
+
+      let job = queuedJob
+      if (job.status === 'succeeded' || job.status === 'failed') {
+        job = await getReservationJob(job.job_id)
+      }
+      for (let poll = 0; poll < maximumPolls && !['succeeded', 'failed'].includes(job.status); poll += 1) {
+        await wait(pollIntervalMs)
+        job = await getReservationJob(job.job_id)
+        setState({ status: job.status === 'processing' ? 'processing' : 'queued', result: null, error: null })
+      }
+
+      if (job.status === 'failed') {
+        throw new ReserveCarError(409, job.error_code ?? 'INTERNAL_ERROR')
+      }
+      if (job.status !== 'succeeded' || !job.result) {
+        throw new ReserveCarError(504, 'QUEUE_TIMEOUT')
+      }
+
+      const result = job.result
       clearAttempt()
       setState({ status: 'success', result, error: null })
       return result

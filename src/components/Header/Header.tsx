@@ -31,6 +31,10 @@ export function Header() {
     <span className="font-inter text-body-md text-neutral-text">Carregando...</span>
   ) : user ? (
     <>
+      <button type="button" onClick={() => navigate('/minhas-reservas')} className="flex items-center gap-xs font-inter text-body-md text-neutral-text hover:text-primary transition-colors">
+        <span className="material-icons text-[20px]">event_note</span>
+        Minhas reservas
+      </button>
       <button type="button" onClick={() => navigate('/minha-conta')} className="flex items-center gap-xs font-inter text-body-md text-neutral-text hover:text-primary transition-colors">
         <span className="material-icons text-[20px]">account_circle</span>
         {userName}
@@ -62,12 +66,17 @@ export function Header() {
 
   return (
     <header className="bg-white shadow-elevation-1 sticky top-0 z-40">
-      <div className="max-w-[1480px] mx-auto px-md md:px-lg flex items-center justify-between h-[92px] gap-md">
+      <div className="max-w-[1480px] mx-auto px-md md:px-lg flex items-center justify-between h-[80px] gap-md">
         <button type="button" onClick={() => navigate('/')} className="shrink-0">
-          <img src={logoSrc} alt="Axo Locadoras" className="h-[58px] w-auto" />
+          <img src={logoSrc} alt="Axo Locadoras" className="h-[50px] w-auto" />
         </button>
 
-        <div className="hidden md:flex flex-1 max-w-[400px]">
+        <div className="hidden lg:flex items-center gap-lg ml-lg">
+          <button type="button" onClick={() => navigate('/carros')} className="font-inter text-body-sm font-bold text-neutral-text hover:text-primary transition-colors">Grupos de carros</button>
+          <button type="button" onClick={() => navigate('/#frota')} className="font-inter text-body-sm font-bold text-neutral-text hover:text-primary transition-colors">Nossa frota</button>
+        </div>
+
+        <div className="hidden md:flex flex-1 max-w-[320px] ml-auto">
           <SearchField className="w-full" />
         </div>
 

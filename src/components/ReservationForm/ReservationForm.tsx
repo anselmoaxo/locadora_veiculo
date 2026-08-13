@@ -137,7 +137,7 @@ export function ReservationForm({
   const clientErrors = useMemo(() => validate(values), [values])
   const errors = { ...clientErrors, ...remoteErrors }
   const estimate = estimatedPrice(values, pricePerDay)
-  const busy = mutation.status === 'validating' || mutation.status === 'submitting'
+  const busy = ['validating', 'submitting', 'queued', 'processing'].includes(mutation.status)
   const invalid = Boolean(clientErrors.startAt || clientErrors.endAt || clientErrors.notes)
 
   function change(field: keyof ReservationFormValues) {
@@ -260,6 +260,17 @@ export function ReservationForm({
       </div>
 
       <div aria-live="polite" aria-atomic="true">
+        {mutation.status === 'queued' || mutation.status === 'processing' ? (
+          <div role="status" className="rounded-xs border border-primary bg-primary-light/40 p-md text-primary-dark">
+            <p className="font-exo font-bold text-heading-xs">
+              {mutation.status === 'queued' ? 'Reserva recebida' : 'Processando reserva'}
+            </p>
+            <p className="font-inter text-body-sm text-neutral-text">
+              Estamos confirmando a disponibilidade. Esta página será atualizada automaticamente.
+            </p>
+          </div>
+        ) : null}
+
         {mutation.status === 'success' && mutation.result ? (
           <div role="status" className="rounded-xs border border-feedback-positive bg-white p-md text-feedback-positive">
             <p className="font-exo font-bold text-heading-xs">Reserva criada!</p>
@@ -303,7 +314,7 @@ export function ReservationForm({
         aria-busy={busy}
       >
         {busy ? (
-          <><span className="material-icons animate-spin text-[20px]" aria-hidden="true">progress_activity</span>Reservando...</>
+          <><span className="material-icons animate-spin text-[20px]" aria-hidden="true">progress_activity</span>{mutation.status === 'queued' ? 'Na fila...' : mutation.status === 'processing' ? 'Processando...' : 'Enviando...'}</>
         ) : mutation.status === 'success' ? 'Reserva criada' : mutation.error?.retryable ? 'Tentar novamente' : 'Reservar agora'}
       </Button>
     </form>

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { Breadcrumbs } from '../components/Breadcrumbs'
@@ -16,6 +16,7 @@ import {
   isValidPhone,
   onlyDigits,
 } from '../utils/driverProfile'
+import { maskCpf, maskDriverLicense, maskPhone } from '../utils/inputMasks'
 
 const initialForm: DriverProfileInput = {
   fullName: '',
@@ -51,6 +52,7 @@ const statusContent: Record<DriverProfileStatus, { label: string; description: s
 }
 
 export function DriverProfilePage() {
+  const [searchParams] = useSearchParams()
   const { user, profile, refreshProfile } = useAuth()
   const [form, setForm] = useState(initialForm)
   const [busy, setBusy] = useState(false)
@@ -65,9 +67,9 @@ export function DriverProfilePage() {
     if (!profile) return
     setForm({
       fullName: profile.nome_completo ?? '',
-      cpf: profile.cpf ?? '',
-      phone: profile.telefone ?? '',
-      cnhNumber: profile.cnh_numero ?? '',
+      cpf: maskCpf(profile.cpf ?? ''),
+      phone: maskPhone(profile.telefone ?? ''),
+      cnhNumber: maskDriverLicense(profile.cnh_numero ?? ''),
       cnhCategory: profile.cnh_categoria ?? 'B',
       cnhExpiration: profile.cnh_validade ?? '',
       cnhState: profile.cnh_uf ?? '',
@@ -110,12 +112,20 @@ export function DriverProfilePage() {
 
   const status = profile?.cadastro_status ?? 'incompleto'
   const content = statusContent[status]
+  const reservationReason = searchParams.get('reason') === 'reservation'
 
   return (
     <div className="min-h-screen flex flex-col bg-neutral-background">
       <Header />
       <main className="flex-1 max-w-[960px] mx-auto w-full px-md md:px-lg py-xl flex flex-col gap-lg">
         <Breadcrumbs items={[{ label: 'Início', href: '/' }, { label: 'Meu cadastro' }]} />
+
+        {reservationReason && status !== 'aprovado' ? (
+          <section className="bg-white border-l-4 border-primary rounded-xs shadow-elevation-1 p-lg" role="status">
+            <h1 className="font-exo font-bold text-heading-sm text-secondary">Etapa 2 de 2: complete seu perfil</h1>
+            <p className="font-inter text-body-md text-neutral-text mt-xs">Para reservar um carro, precisamos validar seu CPF, telefone e dados da CNH. Depois do envio, o cadastro ficará em análise.</p>
+          </section>
+        ) : null}
 
         <section className={`bg-white border-l-4 ${content.className} rounded-xs shadow-elevation-1 p-lg`} aria-live="polite">
           <h1 className="font-exo font-bold text-heading-sm text-secondary">{content.label}</h1>
@@ -133,9 +143,9 @@ export function DriverProfilePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
             <TextField className="sm:col-span-2" label="Nome completo" value={form.fullName} onChange={(event) => update('fullName', event.target.value)} autoComplete="name" required />
-            <TextField label="CPF" inputMode="numeric" value={form.cpf} onChange={(event) => update('cpf', onlyDigits(event.target.value).slice(0, 11))} maxLength={11} required />
-            <TextField label="Telefone com DDD" type="tel" value={form.phone} onChange={(event) => update('phone', onlyDigits(event.target.value).slice(0, 13))} autoComplete="tel" required />
-            <TextField label="Número da CNH" inputMode="numeric" value={form.cnhNumber} onChange={(event) => update('cnhNumber', onlyDigits(event.target.value).slice(0, 11))} maxLength={11} required />
+            <TextField label="CPF" inputMode="numeric" value={form.cpf} onChange={(event) => update('cpf', maskCpf(event.target.value))} placeholder="000.000.000-00" maxLength={14} autoComplete="off" required />
+            <TextField label="Telefone com DDD" type="tel" inputMode="tel" value={form.phone} onChange={(event) => update('phone', maskPhone(event.target.value))} placeholder="(00) 00000-0000" maxLength={15} autoComplete="tel" required />
+            <TextField label="Número da CNH" inputMode="numeric" value={form.cnhNumber} onChange={(event) => update('cnhNumber', maskDriverLicense(event.target.value))} placeholder="00000000000" maxLength={11} required />
             <SelectField label="Categoria da CNH" value={form.cnhCategory} onChange={(value) => update('cnhCategory', value)}>
               {driverLicenseCategories.map((category) => <option key={category} value={category}>{category}</option>)}
             </SelectField>

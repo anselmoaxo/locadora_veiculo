@@ -4,6 +4,7 @@ import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { TextField } from '../components/ui/TextField'
+import { maskPlate, maskRenavam } from '../utils/inputMasks'
 import { Button } from '../components/ui/Button'
 import {
   loadVehicleRegistrationOptions,
@@ -177,10 +178,10 @@ export function VehicleRegistrationPage() {
           </FormSection>
 
           <FormSection title="Unidade da frota" description="Informações exclusivas deste carro físico.">
-            <TextField required label="Placa *" value={form.placa} onChange={(event) => updateField('placa', event.target.value.toUpperCase())} placeholder="ABC1D23" maxLength={8} />
+            <TextField required label="Placa *" value={form.placa} onChange={(event) => updateField('placa', maskPlate(event.target.value))} placeholder="ABC-1D23" maxLength={8} autoCapitalize="characters" />
             <TextField required label="Cor *" value={form.cor} onChange={(event) => updateField('cor', event.target.value)} placeholder="Ex.: Prata" maxLength={40} />
             <TextField label="Chassi" value={form.chassi} onChange={(event) => updateField('chassi', event.target.value.toUpperCase())} placeholder="17 caracteres" maxLength={17} />
-            <TextField label="Renavam" inputMode="numeric" value={form.renavam} onChange={(event) => updateField('renavam', event.target.value)} placeholder="11 dígitos" maxLength={11} />
+            <TextField label="Renavam" inputMode="numeric" value={form.renavam} onChange={(event) => updateField('renavam', maskRenavam(event.target.value))} placeholder="00000000000" maxLength={11} />
             <TextField required label="Quilometragem *" type="number" min="0" value={form.quilometragem} onChange={(event) => updateField('quilometragem', event.target.value)} />
             <SelectField label="Local atual *" value={form.local_id} onChange={(value) => updateField('local_id', value)} disabled={loadingOptions}>
               {(options?.locais ?? []).map((option) => <option key={option.id} value={option.id}>{option.codigo} — {option.nome}</option>)}

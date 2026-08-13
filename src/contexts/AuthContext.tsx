@@ -9,7 +9,7 @@ import {
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import type { DriverProfileInput, DriverProfileStatus } from '../services/driverProfiles'
+import type { DriverProfileStatus } from '../services/driverProfiles'
 
 export interface UserProfile {
   id: string
@@ -28,12 +28,13 @@ interface AuthContextValue {
   session: Session | null
   user: User | null
   profile: UserProfile | null
+  profileLoading: boolean
   loading: boolean
   isAdmin: boolean
   adminLoading: boolean
   isPasswordRecovery: boolean
   signIn: (email: string, password: string) => Promise<Session | null>
-  signUp: (input: DriverProfileInput & { email: string; password: string }) => Promise<Session | null>
+  signUp: (input: { fullName: string; email: string; password: string }) => Promise<Session | null>
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   sendPasswordReset: (email: string) => Promise<void>
@@ -46,6 +47,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminLoading, setAdminLoading] = useState(true)
@@ -56,17 +58,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (!session?.user.id) {
       setProfile(null)
+      setProfileLoading(false)
       return
     }
 
+    setProfileLoading(true)
     const { data, error } = await supabase
       .from('perfis')
       .select('id,nome_completo,cpf,telefone,cnh_numero,cnh_categoria,cnh_validade,cnh_uf,cadastro_status,avaliacao_observacao')
       .eq('id', session.user.id)
       .maybeSingle()
 
-    if (error) throw error
+    if (error) {
+      setProfileLoading(false)
+      throw error
+    }
     setProfile((data as UserProfile | null) ?? null)
+    setProfileLoading(false)
   }, [session?.user.id])
 
   const refreshAdmin = useCallback(async () => {
@@ -87,13 +95,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return
-      if (!error) setSession(data.session)
+      if (!error) {
+        setProfileLoading(Boolean(data.session))
+        setSession(data.session)
+      }
       setLoading(false)
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setIsAdmin(false)
       setAdminLoading(Boolean(nextSession))
+      setProfileLoading(Boolean(nextSession))
       setSession(nextSession)
       setLoading(false)
       if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true)
@@ -121,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     profile,
+    profileLoading,
     loading,
     isAdmin,
     adminLoading,
@@ -137,12 +150,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             full_name: input.fullName,
-            cpf: input.cpf,
-            phone: input.phone,
-            cnh_number: input.cnhNumber,
-            cnh_category: input.cnhCategory,
-            cnh_expiration: input.cnhExpiration,
-            cnh_state: input.cnhState,
           },
           emailRedirectTo: `${window.location.origin}/auth`,
         },
@@ -175,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsPasswordRecovery(false)
     },
     refreshProfile,
-  }), [adminLoading, isAdmin, isPasswordRecovery, loading, profile, refreshProfile, session, user])
+  }), [adminLoading, isAdmin, isPasswordRecovery, loading, profile, profileLoading, refreshProfile, session, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

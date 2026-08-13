@@ -1,18 +1,9 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TextField } from '../components/ui/TextField'
 import { PasswordField } from '../components/ui/PasswordField'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../contexts/AuthContext'
-import {
-  brazilianStates,
-  driverLicenseCategories,
-  isFutureOrToday,
-  isValidCpf,
-  isValidDriverLicenseNumber,
-  isValidPhone,
-  onlyDigits,
-} from '../utils/driverProfile'
 import logoSrc from '../assets/logo.svg'
 import googleIconSrc from '../assets/google-icon.svg'
 
@@ -59,25 +50,34 @@ export function AuthPage() {
   const [regEmail, setRegEmail] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regConfirm, setRegConfirm] = useState('')
-  const [regCpf, setRegCpf] = useState('')
-  const [regPhone, setRegPhone] = useState('')
-  const [regCnh, setRegCnh] = useState('')
-  const [regCnhCategory, setRegCnhCategory] = useState('B')
-  const [regCnhExpiration, setRegCnhExpiration] = useState('')
-  const [regCnhState, setRegCnhState] = useState('')
   const [regError, setRegError] = useState('')
   const [regSuccess, setRegSuccess] = useState(false)
 
   const [newPassword, setNewPassword] = useState('')
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [recoveryError, setRecoveryError] = useState('')
+  const hashParams = new URLSearchParams(window.location.hash.slice(1))
+  const isRecoveryCallback = hashParams.get('type') === 'recovery'
+  const showPasswordRecovery = isPasswordRecovery || isRecoveryCallback
 
   useEffect(() => {
-    if (!user || isPasswordRecovery) return
+    const params = new URLSearchParams(window.location.hash.slice(1))
+    const errorCode = params.get('error_code')
+    if (!errorCode) return
+
+    setTab('login')
+    setLoginError(errorCode === 'otp_expired'
+      ? 'Este link de recuperação expirou ou já foi utilizado. Informe seu e-mail e solicite um novo link.'
+      : params.get('error_description')?.replace(/\+/g, ' ') || 'Não foi possível validar o link de recuperação.')
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+  }, [])
+
+  useEffect(() => {
+    if (!user || showPasswordRecovery) return
     const pendingRedirect = safeRedirect(sessionStorage.getItem('auth_redirect'))
     sessionStorage.removeItem('auth_redirect')
     navigate(pendingRedirect !== '/' ? pendingRedirect : redirect, { replace: true })
-  }, [isPasswordRecovery, navigate, redirect, user])
+  }, [navigate, redirect, showPasswordRecovery, user])
 
   async function handleLogin(event: FormEvent) {
     event.preventDefault()
@@ -103,28 +103,12 @@ export function AuthPage() {
     event.preventDefault()
     setRegError('')
     setNotice('')
-    if (!regName.trim()) {
-      setRegError('Informe seu nome completo.')
+    if (regName.trim().length < 3) {
+      setRegError('Informe seu nome completo com pelo menos 3 caracteres.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
       setRegError('Informe um e-mail válido.')
-      return
-    }
-    if (!isValidCpf(regCpf)) {
-      setRegError('Informe um CPF válido.')
-      return
-    }
-    if (!isValidPhone(regPhone)) {
-      setRegError('Informe um telefone com DDD.')
-      return
-    }
-    if (!isValidDriverLicenseNumber(regCnh)) {
-      setRegError('Informe o número da CNH com 11 dígitos.')
-      return
-    }
-    if (!regCnhState || !isFutureOrToday(regCnhExpiration)) {
-      setRegError('Informe o estado emissor e uma CNH dentro da validade.')
       return
     }
     if (regPassword !== regConfirm) {
@@ -142,12 +126,6 @@ export function AuthPage() {
         fullName: regName.trim(),
         email: regEmail.trim(),
         password: regPassword,
-        cpf: onlyDigits(regCpf),
-        phone: onlyDigits(regPhone),
-        cnhNumber: onlyDigits(regCnh),
-        cnhCategory: regCnhCategory,
-        cnhExpiration: regCnhExpiration,
-        cnhState: regCnhState,
       })
       if (session) {
         navigate(redirect, { replace: true })
@@ -235,12 +213,12 @@ export function AuthPage() {
       </header>
 
       <main className="flex-1 flex items-center justify-center px-md py-xl">
-        <div className={`bg-white rounded-modal shadow-elevation-2 w-full ${tab === 'register' ? 'max-w-[720px]' : 'max-w-[440px]'} p-xl flex flex-col gap-xl`}>
+        <div className="bg-white rounded-modal shadow-elevation-2 w-full max-w-[440px] p-xl flex flex-col gap-xl">
           <div className="flex justify-center">
             <img src={logoSrc} alt="Axo Locadoras" className="h-[60px] w-auto" />
           </div>
 
-          {isPasswordRecovery ? (
+          {showPasswordRecovery ? (
             <form onSubmit={handlePasswordUpdate} className="flex flex-col gap-md" noValidate>
               <h1 className="font-exo font-bold text-heading-sm text-secondary">Criar nova senha</h1>
               <PasswordField
@@ -302,24 +280,14 @@ export function AuthPage() {
                 </div>
               ) : (
                 <form onSubmit={handleRegister} className="flex flex-col gap-md" noValidate>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                    <TextField className="sm:col-span-2" label="Nome completo" value={regName} onChange={(event) => setRegName(event.target.value)} autoComplete="name" required />
-                    <TextField label="CPF" inputMode="numeric" value={regCpf} onChange={(event) => setRegCpf(onlyDigits(event.target.value).slice(0, 11))} maxLength={11} required />
-                    <TextField label="Telefone com DDD" type="tel" value={regPhone} onChange={(event) => setRegPhone(onlyDigits(event.target.value).slice(0, 13))} autoComplete="tel" required />
-                    <TextField className="sm:col-span-2" label="E-mail" type="email" value={regEmail} onChange={(event) => setRegEmail(event.target.value)} autoComplete="email" required />
-                    <TextField label="Número da CNH" inputMode="numeric" value={regCnh} onChange={(event) => setRegCnh(onlyDigits(event.target.value).slice(0, 11))} maxLength={11} required />
-                    <SelectField label="Categoria da CNH" value={regCnhCategory} onChange={setRegCnhCategory}>
-                      {driverLicenseCategories.map((category) => <option key={category} value={category}>{category}</option>)}
-                    </SelectField>
-                    <TextField label="Validade da CNH" type="date" value={regCnhExpiration} onChange={(event) => setRegCnhExpiration(event.target.value)} min={new Date().toISOString().slice(0, 10)} required />
-                    <SelectField label="Estado emissor" value={regCnhState} onChange={setRegCnhState}>
-                      <option value="">Selecione</option>
-                      {brazilianStates.map((state) => <option key={state} value={state}>{state}</option>)}
-                    </SelectField>
+                  <div className="flex flex-col gap-md">
+                    <p className="font-inter text-body-sm text-neutral-text"><strong>Etapa 1 de 2:</strong> crie sua conta. Os dados de condutor serão solicitados somente quando você quiser reservar.</p>
+                    <TextField label="Nome completo" value={regName} onChange={(event) => setRegName(event.target.value)} autoComplete="name" required />
+                    <TextField label="E-mail" type="email" value={regEmail} onChange={(event) => setRegEmail(event.target.value)} autoComplete="email" required />
                     <PasswordField id="register-password" label="Senha" value={regPassword} onChange={(event) => setRegPassword(event.target.value)} autoComplete="new-password" />
                     <PasswordField id="register-password-confirm" label="Confirmar senha" value={regConfirm} onChange={(event) => setRegConfirm(event.target.value)} autoComplete="new-password" />
                   </div>
-                  <p className="font-inter text-body-sm text-neutral-text">Após confirmar o e-mail, seus dados serão enviados para análise do administrador antes da primeira reserva.</p>
+                  <p className="font-inter text-body-sm text-neutral-text">Na primeira reserva, você completará seu perfil com CPF, telefone e CNH para análise.</p>
                   {regError ? <ErrorMessage message={regError} /> : null}
                   <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Criando conta...' : 'Criar conta'}</Button>
                   <Divider label="Ou cadastrar com" />
@@ -340,16 +308,4 @@ function Divider({ label }: { label: string }) {
 
 function ErrorMessage({ message }: { message: string }) {
   return <p role="alert" className="font-inter text-body-sm text-feedback-negative">{message}</p>
-}
-
-function SelectField({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
-  const id = `register-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
-  return (
-    <div className="flex flex-col gap-xxs">
-      <label htmlFor={id} className="font-inter text-body-md text-neutral-text">{label}</label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="w-full border border-neutral-text rounded-xs px-md py-sm bg-white font-inter text-body-md text-neutral-text outline-none focus:border-primary" required>
-        {children}
-      </select>
-    </div>
-  )
 }

@@ -5,6 +5,7 @@ import { Footer } from '../components/Footer'
 import { Header } from '../components/Header'
 import { Button } from '../components/ui/Button'
 import { TextField } from '../components/ui/TextField'
+import { maskPlate, maskRenavam } from '../utils/inputMasks'
 import {
   loadVehicleForEditing,
   updateVehicle,
@@ -41,9 +42,9 @@ export function VehicleEditPage() {
           grupo: vehicle.grupo,
           local_id: vehicle.local_atual_id,
           cor: vehicle.cor ?? '',
-          placa: vehicle.placa ?? '',
+          placa: maskPlate(vehicle.placa ?? ''),
           chassi: vehicle.chassi ?? '',
-          renavam: vehicle.renavam ?? '',
+          renavam: maskRenavam(vehicle.renavam ?? ''),
           ano_modelo: String(vehicle.ano_modelo),
           quilometragem: String(vehicle.quilometragem),
           preco_diaria: String(vehicle.preco_diaria),
@@ -154,10 +155,10 @@ export function VehicleEditPage() {
           </FormSection>
 
           <FormSection title="Unidade da frota" description="Dados exclusivos deste carro físico.">
-            <TextField required label="Placa *" value={form.placa} onChange={(event) => updateField('placa', event.target.value.toUpperCase())} maxLength={8} />
+            <TextField required label="Placa *" value={form.placa} onChange={(event) => updateField('placa', maskPlate(event.target.value))} placeholder="ABC-1D23" maxLength={8} autoCapitalize="characters" />
             <TextField required label="Cor *" value={form.cor} onChange={(event) => updateField('cor', event.target.value)} maxLength={40} />
             <TextField label="Chassi" value={form.chassi} onChange={(event) => updateField('chassi', event.target.value.toUpperCase())} maxLength={17} />
-            <TextField label="Renavam" inputMode="numeric" value={form.renavam} onChange={(event) => updateField('renavam', event.target.value)} maxLength={11} />
+            <TextField label="Renavam" inputMode="numeric" value={form.renavam} onChange={(event) => updateField('renavam', maskRenavam(event.target.value))} placeholder="00000000000" maxLength={11} />
             <TextField required label="Quilometragem *" type="number" min="0" value={form.quilometragem} onChange={(event) => updateField('quilometragem', event.target.value)} />
             <SelectField label="Status operacional *" value={form.status_operacional} onChange={(value) => updateField('status_operacional', value)}>
               <option value="disponivel">Disponível</option><option value="reservado">Reservado</option><option value="alugado">Alugado</option><option value="manutencao">Manutenção</option><option value="inativo">Inativo</option>

@@ -11,6 +11,7 @@ const VehicleRegistrationPage = lazy(() => import('./pages/VehicleRegistrationPa
 const VehicleEditPage = lazy(() => import('./pages/VehicleEditPage').then((module) => ({ default: module.VehicleEditPage })))
 const DriverProfilePage = lazy(() => import('./pages/DriverProfilePage').then((module) => ({ default: module.DriverProfilePage })))
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })))
+const MyReservationsPage = lazy(() => import('./pages/MyReservationsPage').then((module) => ({ default: module.MyReservationsPage })))
 
 function LoadingScreen({ message = 'Carregando...' }: { message?: string }) {
   return <main className="min-h-screen flex items-center justify-center bg-neutral-background font-inter text-body-lg text-neutral-text">{message}</main>
@@ -74,6 +75,10 @@ export default function App() {
           <Route
             path="/minha-conta"
             element={<RequireAuth><DeferredPage><DriverProfilePage /></DeferredPage></RequireAuth>}
+          />
+          <Route
+            path="/minhas-reservas"
+            element={<RequireAuth><DeferredPage><MyReservationsPage /></DeferredPage></RequireAuth>}
           />
           <Route
             path="/admin"

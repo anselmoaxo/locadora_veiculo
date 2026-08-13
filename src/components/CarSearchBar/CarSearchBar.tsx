@@ -58,10 +58,15 @@ export function CarSearchBar({ initialValues, onSearch }: CarSearchBarProps) {
   }
 
   return (
-    <section className="bg-primary-dark py-xl px-md">
+    <section className="bg-gradient-to-br from-primary-dark to-primary py-lg px-md relative overflow-hidden">
+      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_85%_20%,white,transparent_32%)]" aria-hidden="true" />
       <div className="max-w-[1480px] mx-auto">
+        <div className="relative mb-md text-white">
+          <p className="font-inter text-body-sm font-bold uppercase tracking-[0.18em] text-white/75">Reserve seu carro</p>
+          <h2 className="mt-xxs font-exo text-heading-sm font-extrabold">Onde começa a sua viagem?</h2>
+        </div>
         {/* Mobile collapsed */}
-        <div className="md:hidden flex flex-col gap-md">
+        <div className="relative md:hidden flex flex-col gap-md rounded-modal bg-white p-md shadow-elevation-2">
           <LocationField
             value={location}
             options={locations.map((item) => item.nome)}
@@ -99,13 +104,13 @@ export function CarSearchBar({ initialValues, onSearch }: CarSearchBarProps) {
               </div>
             </>
           )}
-          <Button variant="secondary" className="w-full" onClick={handleSearch}>
-            Buscar
+          <Button className="w-full" onClick={handleSearch} icon="search">
+            Buscar carros
           </Button>
         </div>
 
         {/* Desktop */}
-        <div className="hidden md:flex items-center gap-md flex-wrap">
+        <div className="relative hidden md:flex items-end gap-md flex-wrap rounded-modal bg-white p-md shadow-elevation-2">
           <LocationField
             value={location}
             options={locations.map((item) => item.nome)}
@@ -132,8 +137,8 @@ export function CarSearchBar({ initialValues, onSearch }: CarSearchBarProps) {
             onChange={setReturnTime}
             className="w-[128px] shrink-0"
           />
-          <Button variant="secondary" onClick={handleSearch}>
-            Buscar
+          <Button onClick={handleSearch} icon="search" className="min-h-[48px] px-lg">
+            Buscar carros
           </Button>
         </div>
       </div>
